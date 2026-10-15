@@ -26,9 +26,9 @@
 |----------------------------------------|------------------------------------------|------------------------------------------------|
 | Old Overview                               | Old Search Dialog                            | Old Manga Detail                                   |
 
-| ![Main Page](Screenshots/Overview.png) | ![Search](Screenshots/NewSearch.png) | ![Manga Detail](Screenshots/MangaDetail.png) |
+| ![Main Page](Screenshots/NewOverview.png) | ![Search](Screenshots/NewSearch.png) | ![Manga Detail](Screenshots/NewMangaDetail.png) |
 |----------------------------------------|------------------------------------------|------------------------------------------------|
-| Overview                               | Search Dialog                            | Manga Detail                                   |
+| New Overview                               | New Search Dialog                            | New Manga Detail                                   |
 
 
 ## About The Project
