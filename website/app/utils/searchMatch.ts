@@ -43,6 +43,16 @@ export function sameTitle(a: (string | null | undefined)[], b: (string | null | 
     return b.some((t) => set.has(normalizeTitle(t)));
 }
 
+const EDITION = /\b(r ?-?18|adult|uncensored|censored|colou?r(?:ed)?|full ?colou?r|official|novel|light ?novel|anthology|one ?-?shot|doujin(?:shi)?|remake|webtoon|spin ?-?off)\b/gi;
+
+/** Edition markers in a title ("R18", "Colored", "Official", …): "Title" and "Title [R18]" are different series */
+export function editionTags(title?: string | null): string {
+    const tags = [...(title ?? '').matchAll(EDITION)].map((m) =>
+        m[0].toLowerCase().replace(/[^a-z0-9]/g, '').replace('colour', 'color').replace('colored', 'color').replace('doujinshi', 'doujin')
+    );
+    return [...new Set(tags)].sort().join(',');
+}
+
 /** "https://…", "http://…" or "www.…" */
 export function looksLikeUrl(input: string): boolean {
     const s = input.trim();

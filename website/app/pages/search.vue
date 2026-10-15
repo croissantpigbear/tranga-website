@@ -290,7 +290,18 @@ const isInLibrary = (m: MinimalManga) => libraryKeys.value.has(m.key) || m.manga
 const resultTitles = reactive<Record<string, string[]>>({});
 function duplicateOf(m: MinimalManga): { key: string; name: string } | undefined {
     const titles = resultTitles[m.key] ?? [m.name];
-    const match = libraryManga.value.find((l) => l.key !== m.key && sameTitle([l.name], titles));
+    const tags = editionTags(m.name);
+    const match = libraryManga.value.find(
+        (l) =>
+            l.key !== m.key &&
+            sameTitle([l.name], titles) &&
+            // "Title" vs "Title [R18]": different editions are different series
+            editionTags(l.name) === tags &&
+            // a different page on the same website is a different series
+            !m.mangaConnectorIds.some((mid) =>
+                l.mangaConnectorIds.some((lid) => lid.mangaConnectorName === mid.mangaConnectorName && lid.websiteUrl !== mid.websiteUrl)
+            )
+    );
     return match ? { key: match.key, name: match.name } : undefined;
 }
 
