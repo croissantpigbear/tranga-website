@@ -1,5 +1,6 @@
 <template>
     <div class="flex flex-col gap-3">
+        <ActivityFailures ref="failures" :active="active" @count="(n) => emit('failed', n)" @changed="load" />
         <p v-if="supported === false" class="text-sm text-warning">The download queue needs a newer Tranga API (the download queue update).</p>
         <USkeleton v-else-if="!entries" class="h-40 w-full" />
         <p v-else-if="!entries.length" class="text-sm text-muted">Nothing waiting to download. Every chapter you asked for is downloaded.</p>
@@ -21,6 +22,12 @@
                                 Downloading {{ e.downloading }}
                             </UBadge>
                             <UBadge v-else-if="i === 0" size="sm" variant="subtle" color="neutral" icon="i-lucide-clock">Next</UBadge>
+                            <UBadge v-if="e.failed" size="sm" variant="subtle" color="error" icon="i-lucide-triangle-alert">
+                                {{ e.failed }} failed
+                            </UBadge>
+                            <UBadge v-if="e.retrying" size="sm" variant="subtle" color="warning" icon="i-lucide-rotate-ccw">
+                                {{ e.retrying }} retrying
+                            </UBadge>
                             <span>{{ e.chaptersLeft }} {{ e.chaptersLeft === 1 ? 'chapter' : 'chapters' }} left</span>
                             <span v-if="e.nextChapter" class="text-dimmed">· from Ch. {{ e.nextChapter }}</span>
                             <span v-if="e.websites.length" class="text-dimmed">· {{ e.websites.join(', ') }}</span>
@@ -78,10 +85,12 @@ export interface DownloadQueueEntry {
     downloading: number;
     nextChapter?: string | null;
     websites: string[];
+    failed?: number;
+    retrying?: number;
 }
 
 const props = defineProps<{ active: boolean }>();
-const emit = defineEmits<{ (e: 'count', series: number): void }>();
+const emit = defineEmits<{ (e: 'count', series: number): void; (e: 'failed', chapters: number): void }>();
 const api = useTrangaApi();
 const toast = useToast();
 const config = useRuntimeConfig();
@@ -112,7 +121,8 @@ watch(
     (a) => a && supported.value !== false && load()
 );
 onMounted(load);
-defineExpose({ reload: load });
+const failures = ref<{ reload: () => unknown }>();
+defineExpose({ reload: () => (load(), failures.value?.reload()) });
 onBeforeUnmount(() => clearTimeout(timer));
 
 async function move(mangaId: string, position: number) {

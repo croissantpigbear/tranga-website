@@ -29,7 +29,7 @@
             <p class="text-sm text-muted -mt-2">{{ tabs.find((t) => t.value === tab)?.description }}</p>
 
             <ActivityHistory v-show="tab === 'history'" ref="history" :initial-manga-id="initialMangaId" />
-            <ActivityQueue v-show="tab === 'queue'" ref="queue" :active="tab === 'queue'" @count="(n) => (queueCount = n)" />
+            <ActivityQueue v-show="tab === 'queue'" ref="queue" :active="tab === 'queue'" @count="(n) => (queueCount = n)" @failed="(n) => (failedCount = n)" />
             <ActivityJobs v-show="tab === 'jobs'" ref="jobs" :active="tab === 'jobs'" @count="(n) => (runningCount = n)" />
             <ActivityLogs v-show="tab === 'logs'" ref="logs" :active="tab === 'logs'" @problems="(p) => (problems = p)" />
         </div>
@@ -48,6 +48,7 @@ watch(tab, (t) => router.replace({ query: { ...route.query, tab: t } }));
 
 const runningCount = ref(0);
 const queueCount = ref(0);
+const failedCount = ref(0);
 const problems = ref<{ warnings: number; errors: number }>();
 
 const tabs = computed(() => [
@@ -61,9 +62,10 @@ const tabs = computed(() => [
         value: 'queue' as Tab,
         label: 'Download queue',
         icon: 'i-lucide-list-ordered',
-        badge: queueCount.value || undefined,
-        badgeColor: 'primary' as const,
-        description: 'Series waiting to download, in order: first added, first downloaded. Move a series up to download it sooner.',
+        badge: failedCount.value ? `${failedCount.value} failed` : queueCount.value || undefined,
+        badgeColor: failedCount.value ? ('error' as const) : ('primary' as const),
+        description:
+            'Series waiting to download, in order: first added, first downloaded. Move a series up to download it sooner. Failed chapters are listed first.',
     },
     {
         value: 'jobs' as Tab,
