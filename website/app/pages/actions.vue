@@ -29,6 +29,7 @@
             <p class="text-sm text-muted -mt-2">{{ tabs.find((t) => t.value === tab)?.description }}</p>
 
             <ActivityHistory v-show="tab === 'history'" ref="history" :initial-manga-id="initialMangaId" />
+            <ActivityQueue v-show="tab === 'queue'" ref="queue" :active="tab === 'queue'" @count="(n) => (queueCount = n)" />
             <ActivityJobs v-show="tab === 'jobs'" ref="jobs" :active="tab === 'jobs'" @count="(n) => (runningCount = n)" />
             <ActivityLogs v-show="tab === 'logs'" ref="logs" :active="tab === 'logs'" @problems="(p) => (problems = p)" />
         </div>
@@ -36,16 +37,17 @@
 </template>
 
 <script setup lang="ts">
-type Tab = 'history' | 'jobs' | 'logs';
+type Tab = 'history' | 'queue' | 'jobs' | 'logs';
 
 const route = useRoute();
 const router = useRouter();
 const initialMangaId = typeof route.query.mangaId === 'string' ? route.query.mangaId : undefined;
 
-const tab = ref<Tab>(['history', 'jobs', 'logs'].includes(route.query.tab as string) ? (route.query.tab as Tab) : 'history');
+const tab = ref<Tab>(['history', 'queue', 'jobs', 'logs'].includes(route.query.tab as string) ? (route.query.tab as Tab) : 'history');
 watch(tab, (t) => router.replace({ query: { ...route.query, tab: t } }));
 
 const runningCount = ref(0);
+const queueCount = ref(0);
 const problems = ref<{ warnings: number; errors: number }>();
 
 const tabs = computed(() => [
@@ -54,6 +56,14 @@ const tabs = computed(() => [
         label: 'History',
         icon: 'i-lucide-history',
         description: 'What Tranga has done: downloads, chapter checks, covers, metadata updates and file moves.',
+    },
+    {
+        value: 'queue' as Tab,
+        label: 'Download queue',
+        icon: 'i-lucide-list-ordered',
+        badge: queueCount.value || undefined,
+        badgeColor: 'primary' as const,
+        description: 'Series waiting to download, in order: first added, first downloaded. Move a series up to download it sooner.',
     },
     {
         value: 'jobs' as Tab,
@@ -75,9 +85,10 @@ const tabs = computed(() => [
 
 type Reloadable = { reload: () => unknown };
 const history = ref<Reloadable>();
+const queue = ref<Reloadable>();
 const jobs = ref<Reloadable>();
 const logs = ref<Reloadable>();
-const reload = () => ({ history, jobs, logs })[tab.value].value?.reload();
+const reload = () => ({ history, queue, jobs, logs })[tab.value].value?.reload();
 defineShortcuts({ meta_r: { usingInput: true, handler: reload } });
 
 useHead({ title: 'Activity' });
