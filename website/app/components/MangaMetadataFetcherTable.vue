@@ -2,12 +2,13 @@
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
         <template #header>
             <h1 class="font-semibold">Metadata</h1>
+            <p class="text-xs text-muted mt-0.5">Link a metadata site to pull titles, description and authors from it.</p>
         </template>
         <UTable
             v-if="metadataFetchers && metadata"
             :data="metadataFetchers"
             :columns="[
-                { header: 'Name', id: 'name' },
+                { header: 'Site', id: 'name' },
                 { header: '', id: 'link' },
             ]">
             <template #name-cell="{ row }">
@@ -17,19 +18,30 @@
             </template>
             <template #link-cell="{ row }">
                 <div class="flex flex-row gap-2 justify-end">
-                    <UButton
-                        v-if="metadata.find((me) => me.metadataFetcherName === row.original)"
-                        icon="i-lucide-unlink"
-                        loading-auto
-                        @click="unlinkMetadataFetcher(row.original)" />
-                    <UTooltip v-if="metadata.find((me) => me.metadataFetcherName === row.original)" text="Update Metadata">
-                        <UButton icon="i-lucide-refresh-ccw-dot" loading-auto @click="updateMetadata(row.original)" />
+                    <UTooltip v-if="metadata.find((me) => me.metadataFetcherName === row.original)" text="Copy metadata from this site again">
+                        <UButton size="sm" variant="soft" icon="i-lucide-refresh-ccw-dot" loading-auto @click="updateMetadata(row.original)">
+                            Update
+                        </UButton>
                     </UTooltip>
                     <UButton
+                        v-if="metadata.find((me) => me.metadataFetcherName === row.original)"
+                        size="sm"
+                        variant="outline"
+                        color="neutral"
+                        icon="i-lucide-unlink"
+                        loading-auto
+                        @click="unlinkMetadataFetcher(row.original)">
+                        Unlink
+                    </UButton>
+                    <UButton
                         v-if="metadata.find((me) => me.metadataFetcherName === row.original) === undefined"
+                        size="sm"
+                        variant="soft"
                         :to="`/manga/${mangaId}/linkMetadata/${row.original}?return=${$route.fullPath}`"
                         loading-auto
-                        icon="i-lucide-link" />
+                        icon="i-lucide-link">
+                        Link
+                    </UButton>
                 </div>
             </template>
         </UTable>

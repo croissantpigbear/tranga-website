@@ -1,134 +1,84 @@
 <template>
-    <TrangaPage rimless>
-        <template #center>
-            <UButton color="primary" icon="i-lucide-rotate-ccw" class="max-md:order-1" @click="resetFilter" />
-            <USelect v-model="params.action" :items="ActionTypes" class="w-70 max-md:order-3" @change="refreshData" />
-            <UInput
-                v-model="params.start"
-                icon="i-lucide-chevron-first"
-                class="w-70 max-md:order-4"
-                type="datetime-local"
-                @change="refreshData" />
-            <UTooltip text="No timelimit" class="max-md:order-2">
-                <UButton color="primary" icon="i-lucide-infinity" @click="noTimeLimit" />
-            </UTooltip>
-            <UInput
-                v-model="params.end"
-                icon="i-lucide-chevron-last"
-                type="datetime-local"
-                class="w-70 max-md:order-5"
-                @change="refreshData" />
+    <TrangaPage>
+        <template #title>
+            <p class="text-2xl font-semibold">Activity</p>
         </template>
         <template #actions>
             <UTooltip text="Reload" :kbds="['meta', 'R']">
-                <UButton variant="soft" color="secondary" icon="i-lucide-refresh-ccw" loading-auto @click="refreshData" />
+                <UButton variant="soft" color="secondary" icon="i-lucide-refresh-ccw" @click="reload">
+                    <span class="max-sm:hidden">Reload</span>
+                </UButton>
             </UTooltip>
         </template>
-        <div class="w-full pt-2">
-            <div class="flex gap-2 justify-center items-center max-sm:flex-col">
-                <p class="text-dimmed basis-0 text-nowrap">{{ data?.totalCount }} Actions</p>
-                <UPagination
-                    :default-page="pagination.pageIndex + 1"
-                    :items-per-page="pagination.pageSize"
-                    :total="data?.totalCount ?? 0"
-                    class="basis-0"
-                    @update:page="(p) => (pagination.pageIndex = p - 1)" />
-            </div>
-            <UTable ref="table" :data="data?.data" :columns="columns" :sticky="'header'" :loading="status === 'pending'" class="h-full">
-                <template #action-cell="{ row }">
-                    {{ row.original.action.split(/(?=[A-Z])/).join(' ') }}
-                </template>
-                <template #timestamp-cell="{ row }">
-                    {{ new Date(row.original.performedAt).toLocaleString() }}
-                </template>
-                <template #manga-cell="{ row }">
-                    <UButton
-                        v-if="row.original.mangaId"
-                        :to="`/manga/${row.original.mangaId}?return=${$route.fullPath}`"
-                        variant="ghost"
-                        color="primary"
-                        >Manga</UButton
-                    >
-                </template>
-                <template #chapter-cell="{ row }">
-                    <UButton
-                        v-if="row.original.chapterId"
-                        :to="`/manga/${row.original.mangaId}?return=${$route.fullPath}#${row.original.chapterId}`"
-                        variant="ghost"
-                        color="secondary"
-                        >Chapter</UButton
-                    >
-                </template>
-                <template #additional-cell="{ row }">
-                    <p v-if="row.original.from">From: {{ row.original.from }}</p>
-                    <p v-if="row.original.to">To: {{ row.original.to }}</p>
-                    <p v-if="row.original.filename">Filename: {{ row.original.filename }}</p>
-                    <p v-if="row.original.metadataFetcher">Metadata Fetcher: {{ row.original.metadataFetcher }}</p>
-                </template>
-            </UTable>
+        <div class="max-w-6xl mx-auto w-full flex flex-col gap-4 pb-8">
+            <nav class="flex flex-row flex-wrap gap-1 border-b border-default">
+                <button
+                    v-for="t in tabs"
+                    :key="t.value"
+                    type="button"
+                    :class="[
+                        'flex flex-row items-center gap-2 px-3 py-2 text-sm -mb-px border-b-2 transition-colors',
+                        tab === t.value ? 'border-primary text-primary font-medium' : 'border-transparent text-muted hover:text-default',
+                    ]"
+                    @click="tab = t.value">
+                    <UIcon :name="t.icon" class="size-4" />
+                    {{ t.label }}
+                    <UBadge v-if="t.badge" size="sm" variant="subtle" :color="t.badgeColor ?? 'neutral'">{{ t.badge }}</UBadge>
+                </button>
+            </nav>
+            <p class="text-sm text-muted -mt-2">{{ tabs.find((t) => t.value === tab)?.description }}</p>
+
+            <ActivityHistory v-show="tab === 'history'" ref="history" :initial-manga-id="initialMangaId" />
+            <ActivityJobs v-show="tab === 'jobs'" ref="jobs" :active="tab === 'jobs'" @count="(n) => (runningCount = n)" />
+            <ActivityLogs v-show="tab === 'logs'" ref="logs" :active="tab === 'logs'" @problems="(p) => (problems = p)" />
         </div>
     </TrangaPage>
 </template>
 
 <script setup lang="ts">
-import type { TableColumn } from '#ui/components/Table.vue';
-import type { UTable } from '#components';
-import type { components } from '#open-fetch-schemas/api';
-type ActionsFilterRecord = components['schemas']['ActionsFilterRecord'];
-type ActionRecord = components['schemas']['ActionRecord'];
+type Tab = 'history' | 'jobs' | 'logs';
 
-const { $api } = useNuxtApp();
+const route = useRoute();
+const router = useRouter();
+const initialMangaId = typeof route.query.mangaId === 'string' ? route.query.mangaId : undefined;
 
-const pagination = ref({ pageIndex: 0, pageSize: 10 });
+const tab = ref<Tab>(['history', 'jobs', 'logs'].includes(route.query.tab as string) ? (route.query.tab as Tab) : 'history');
+watch(tab, (t) => router.replace({ query: { ...route.query, tab: t } }));
 
-const timezoneOffsetMillis = new Date().getTimezoneOffset() * 60 * 1000;
-const params = ref<Partial<ActionsFilterRecord>>({
-    ...useRoute().query,
-    start: new Date(Date.now() - 24 * 60 * 60 * 1000 - timezoneOffsetMillis).toISOString().slice(0, 16),
-    end: new Date(Date.now() - timezoneOffsetMillis).toISOString().slice(0, 16),
-});
-const { data, refresh, status } = useAsyncData(
-    FetchKeys.Actions.Page(params.value, pagination.value.pageIndex),
-    () =>
-        $api('/v2/Actions/Filter', {
-            method: 'POST',
-            body: params.value,
-            query: { page: pagination.value.pageIndex + 1, pageSize: pagination.value.pageSize },
-        }),
-    { watch: [pagination.value], lazy: true, server: false }
-);
-const { data: ActionTypes } = useApi('/v2/Actions/Types', { key: FetchKeys.Actions.Types, server: false });
+const runningCount = ref(0);
+const problems = ref<{ warnings: number; errors: number }>();
 
-const columns: TableColumn<ActionRecord>[] = [
-    { id: 'action', accessorKey: 'action', header: 'Action' },
-    { id: 'timestamp', accessorKey: 'performedAt', header: 'Timestamp' },
-    { id: 'manga', accessorKey: 'mangaId', header: 'Manga' },
-    { id: 'chapter', accessorKey: 'chapterId', header: 'Chapter' },
-    { id: 'additional', header: 'Additional' },
-];
+const tabs = computed(() => [
+    {
+        value: 'history' as Tab,
+        label: 'History',
+        icon: 'i-lucide-history',
+        description: 'What Tranga has done: downloads, chapter checks, covers, metadata updates and file moves.',
+    },
+    {
+        value: 'jobs' as Tab,
+        label: 'Running now',
+        icon: 'i-lucide-cpu',
+        badge: runningCount.value || undefined,
+        badgeColor: 'primary' as const,
+        description: 'Jobs running or queued right now, and the jobs Tranga runs on a schedule.',
+    },
+    {
+        value: 'logs' as Tab,
+        label: 'Logs',
+        icon: 'i-lucide-scroll-text',
+        badge: problems.value?.errors ? `${problems.value.errors} errors` : problems.value?.warnings ? `${problems.value.warnings} warnings` : undefined,
+        badgeColor: problems.value?.errors ? ('error' as const) : ('warning' as const),
+        description: "Tranga's own log, live. Use it to see why something failed, e.g. a download that didn't finish.",
+    },
+]);
 
-const resetFilter = async () => {
-    params.value = {
-        ...useRoute().query,
-        start: new Date(Date.now() - 24 * 60 * 60 * 1000 - timezoneOffsetMillis).toISOString().slice(0, 16),
-        end: new Date(Date.now() - timezoneOffsetMillis).toISOString().slice(0, 16),
-    };
-    await refreshData();
-};
+type Reloadable = { reload: () => unknown };
+const history = ref<Reloadable>();
+const jobs = ref<Reloadable>();
+const logs = ref<Reloadable>();
+const reload = () => ({ history, jobs, logs })[tab.value].value?.reload();
+defineShortcuts({ meta_r: { usingInput: true, handler: reload } });
 
-const noTimeLimit = async () => {
-    params.value = {
-        ...params.value,
-        start: new Date(0).toISOString().slice(0, 16),
-        end: new Date(Date.now() - timezoneOffsetMillis).toISOString().slice(0, 16),
-    };
-    await refreshData();
-};
-
-const refreshData = async (): Promise<void> => {
-    if (!params.value.start || !params.value.end) return Promise.reject();
-    pagination.value.pageIndex = 0;
-    await refresh();
-};
-defineShortcuts({ meta_r: { usingInput: true, handler: refreshData } });
+useHead({ title: 'Activity' });
 </script>

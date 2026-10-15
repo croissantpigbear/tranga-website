@@ -25,19 +25,27 @@
                 <UNavigationMenu :items="items" orientation="horizontal" variant="link" color="neutral" />
             </template>
             <template #right>
-                <UButton
-                    icon="i-lucide-brick-wall-shield"
-                    :to="`/actions?return=${$route.fullPath}`"
-                    :disabled="$route.fullPath.startsWith('/actions')"
-                    variant="soft"
-                    color="secondary" />
+                <UTooltip text="What Tranga has been doing (downloads, checks, …)">
+                    <UButton
+                        icon="i-lucide-brick-wall-shield"
+                        :to="`/actions?return=${$route.fullPath}`"
+                        :disabled="$route.fullPath.startsWith('/actions')"
+                        variant="soft"
+                        color="secondary">
+                        <span class="max-lg:hidden">Activity</span>
+                    </UButton>
+                </UTooltip>
                 <UButton icon="i-lucide-plus" to="/search" color="primary">
                     <template #default>
-                        <span class="max-sm:hidden">Manga</span>
+                        <span class="max-sm:hidden">Add manga</span>
                     </template>
                 </UButton>
-                <UColorModeButton color="secondary" />
-                <UButton icon="i-lucide-settings" variant="ghost" to="/settings" color="secondary" />
+                <UTooltip text="Switch light / dark mode">
+                    <UColorModeButton color="secondary" />
+                </UTooltip>
+                <UButton icon="i-lucide-settings" variant="ghost" to="/settings" color="secondary">
+                    <span class="max-lg:hidden">Settings</span>
+                </UButton>
             </template>
         </UHeader>
         <UMain>

@@ -1,20 +1,20 @@
-﻿# npm packages
+# npm packages
 FROM node:24-alpine AS builder
+
+# build tools in case native modules (better-sqlite3) need compiling
+RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
 COPY website/* /app
-RUN npm -dd install -g npm
-RUN npm -dd install
+RUN npm install
 ENV NUXT_PUBLIC_OPEN_FETCH_API_BASE_URL="/api/"
-RUN npm -dd run generate
+RUN npm run generate
 
 # Serve stage
 FROM nginx:alpine3.22-slim
 
-# Copy built files from Vite's dist folder
 COPY --from=builder /app/.output/public /usr/share/nginx/html
-#COPY --from=builder /app/tranga-website/media /usr/share/nginx/html/media
 COPY ./nginx /etc/nginx
 
 EXPOSE 80

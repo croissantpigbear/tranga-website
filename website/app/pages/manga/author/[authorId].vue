@@ -5,6 +5,9 @@
                 Manga with Author <UBadge variant="outline" color="neutral" class="font-semibold text-xl ml-1">{{ author?.name }}</UBadge>
             </h1>
         </template>
+        <template #actions>
+            <MangaViewToggle />
+        </template>
         <LoadingPage :loading="status === 'pending'">
             <MangaCardList
                 :manga="manga"

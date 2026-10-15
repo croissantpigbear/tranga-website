@@ -5,6 +5,9 @@
                 Manga with Tag <UBadge variant="outline" color="primary" class="font-semibold text-xl ml-1">{{ tag }}</UBadge>
             </h1>
         </template>
+        <template #actions>
+            <MangaViewToggle />
+        </template>
         <LoadingPage :loading="status === 'pending'">
             <MangaCardList
                 :manga="manga"

@@ -1,3 +1,8 @@
+# Cache for the MangaUpdates proxy below. MangaUpdates asks API users to cache responses
+# and space out requests, so lookups are kept for 24h (and served stale if MangaUpdates is down).
+proxy_cache_path /var/cache/nginx/mangaupdates levels=1:2 keys_zone=mangaupdates:10m max_size=200m inactive=7d use_temp_path=off;
+proxy_cache_path /var/cache/nginx/mangadex levels=1:2 keys_zone=mangadex:5m max_size=50m inactive=7d use_temp_path=off;
+
 server {
     listen       80 default_server;
     listen  [::]:80 default_server;
@@ -28,6 +33,70 @@ server {
     location /v2 {
         proxy_pass_request_headers on;
         proxy_pass $API_URL;
+    }
+
+    # Extra series info from MangaUpdates (https://api.mangaupdates.com), proxied so the browser
+    # doesn't need cross-site access. Only the read-only lookups the website uses are forwarded.
+    location /mangaupdates/ {
+        # Resolve at request time, so the site still starts without internet access.
+        # (`set` must come before `rewrite ... break`, which stops later set/return directives.)
+        resolver 127.0.0.11 8.8.8.8 ipv6=off valid=300s;
+        resolver_timeout 5s;
+        set $mangaupdates_upstream https://api.mangaupdates.com;
+        rewrite ^/mangaupdates/(series/[0-9]+|series/search|releases/search)$ /v1/$1 break;
+        return 404;
+
+        proxy_pass $mangaupdates_upstream$uri;
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host api.mangaupdates.com;
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "";
+        proxy_set_header User-Agent "Tranga-website (self-hosted)";
+        proxy_hide_header Set-Cookie;
+
+        client_max_body_size 16k;
+        client_body_buffer_size 16k;
+        proxy_cache mangaupdates;
+        proxy_cache_methods GET HEAD POST;
+        proxy_cache_key "$request_method|$uri|$request_body";
+        proxy_ignore_headers Cache-Control Expires Set-Cookie Vary;
+        proxy_cache_valid 200 24h;
+        proxy_cache_valid 404 6h;
+        proxy_cache_use_stale error timeout updating http_429 http_500 http_502 http_503 http_504;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status always;
+    }
+
+    # Content rating from MangaDex (https://api.mangadex.org), same idea as above: only single-manga
+    # lookups are forwarded, cached for 24h.
+    location /mangadex/ {
+        resolver 127.0.0.11 8.8.8.8 ipv6=off valid=300s;
+        resolver_timeout 5s;
+        set $mangadex_upstream https://api.mangadex.org;
+        rewrite "^/mangadex/manga/([0-9a-f-]{36})$" /manga/$1 break;
+        return 404;
+
+        limit_except GET { deny all; }
+        proxy_pass $mangadex_upstream$uri;
+        proxy_ssl_server_name on;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_set_header Host api.mangadex.org;
+        proxy_set_header Cookie "";
+        proxy_set_header Authorization "";
+        proxy_set_header User-Agent "Tranga-website (self-hosted)";
+        proxy_hide_header Set-Cookie;
+
+        proxy_cache mangadex;
+        proxy_cache_key "$uri";
+        proxy_ignore_headers Cache-Control Expires Set-Cookie Vary;
+        proxy_cache_valid 200 24h;
+        proxy_cache_valid 404 6h;
+        proxy_cache_use_stale error timeout updating http_429 http_500 http_502 http_503 http_504;
+        proxy_cache_lock on;
+        add_header X-Cache-Status $upstream_cache_status always;
     }
 
     location /_ipx/_/api{
