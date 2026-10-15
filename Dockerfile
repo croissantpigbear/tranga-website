@@ -1,5 +1,5 @@
 # npm packages
-FROM node:24-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:24-alpine AS builder
 
 # build tools in case native modules (better-sqlite3) need compiling
 RUN apk add --no-cache python3 make g++
