@@ -87,7 +87,7 @@
                 @click.stop
                 @keydown.enter.stop>
                 <UIcon name="i-lucide-external-link" class="size-3.5" />
-                Info from MangaUpdates<span v-if="mangaUpdates.matchedBy === 'title'">*</span>
+                Info from {{ mangaUpdates.source ?? 'MangaUpdates' }}<span v-if="mangaUpdates.matchedBy === 'title'">*</span>
             </a>
         </div>
 
@@ -128,7 +128,7 @@
                 @click.stop
                 @keydown.enter.stop>
                 <UIcon name="i-lucide-external-link" class="size-3.5" />
-                Info from MangaUpdates<span v-if="mangaUpdates.matchedBy === 'title'">*</span>
+                Info from {{ mangaUpdates.source ?? 'MangaUpdates' }}<span v-if="mangaUpdates.matchedBy === 'title'">*</span>
             </a>
         </div>
     </div>
@@ -225,7 +225,7 @@ const chapterNumber = (s?: string | number | null) => {
 function volumesFact(mu: MangaUpdatesInfo | null | undefined): Fact {
     const label = 'Volumes';
     const icon = 'i-lucide-library';
-    if (!mu || (mu.volumes === undefined && !mu.statusWord)) return na(label, icon, 'Not known (no MangaUpdates info)');
+    if (!mu || (mu.volumes === undefined && !mu.statusWord)) return na(label, icon, 'Not known (no MangaUpdates or AniList info)');
     const vols = mu.volumes === undefined ? undefined : mu.volumes === 0 ? 'None yet' : String(mu.volumes);
     return { label, icon, value: [vols, mu.statusWord].filter(Boolean).join(' · '), title: mu.status };
 }
@@ -299,7 +299,7 @@ const facts = computed<Fact[]>(() => {
                   icon: 'i-lucide-star',
                   value: `${mu.rating.toFixed(2)} / 10${mu.ratingVotes ? ` · ${mu.ratingVotes.toLocaleString()} votes` : ''}`,
               }
-            : na('Rating', 'i-lucide-star', mu ? 'No rating on MangaUpdates yet' : 'No MangaUpdates info'),
+            : na('Rating', 'i-lucide-star', mu ? 'No rating yet' : 'No MangaUpdates or AniList info'),
     ];
 });
 /** Narrow screens: skip the N/A ones to save space */

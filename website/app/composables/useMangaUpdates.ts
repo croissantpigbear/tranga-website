@@ -35,6 +35,10 @@ export interface MangaUpdatesInfo {
     englishPublishers: string[];
     /** Magazines / imprints the series runs in, e.g. "Weekly Shounen Jump" */
     publications: string[];
+    /** Where these details come from, e.g. "MangaUpdates", "AniList" or "MangaUpdates and AniList" */
+    source?: string;
+    /** Each source with its page, for "Info from …" links */
+    sources?: { name: string; url: string; matchedBy: 'link' | 'title' }[];
     /** Most recent scanlation release listed on MangaUpdates (may be unavailable) */
     latestRelease?: { chapter?: string; volume?: string; date?: string; groups: string[] };
 }

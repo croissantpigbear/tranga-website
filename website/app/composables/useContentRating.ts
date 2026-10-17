@@ -11,7 +11,7 @@ export interface ContentRating {
     level: ContentRatingLevel;
     label: string;
     color: 'success' | 'warning' | 'error' | 'neutral';
-    source: 'MangaDex' | 'MangaUpdates genres';
+    source: 'MangaDex' | 'MangaUpdates genres' | 'AniList';
     /** Tooltip text explaining where it came from */
     description: string;
 }
@@ -34,7 +34,9 @@ export function contentRatingFromLevel(level: ContentRatingLevel, source: Conten
         description:
             source === 'MangaDex'
                 ? `${l.meaning} (MangaDex content rating)`
-                : `${l.meaning} (estimated from MangaUpdates genres)`,
+                : source === 'AniList'
+                  ? `${l.meaning} (marked adult on AniList)`
+                  : `${l.meaning} (estimated from MangaUpdates genres)`,
     };
 }
 

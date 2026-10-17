@@ -12,8 +12,103 @@ export interface ServerExtraMetadata {
     data: {
         mangaUpdates?: Omit<MangaUpdatesInfo, 'latestRelease'> | null;
         contentRating?: ContentRatingLevel | null;
-        contentRatingSource?: 'MangaDex' | 'MangaUpdates genres' | null;
+        contentRatingSource?: 'MangaDex' | 'MangaUpdates genres' | 'AniList' | null;
         mangaDexId?: string | null;
+        aniList?: AniListInfo | null;
+    };
+}
+
+/** Series info from AniList, stored by the Tranga API (fills gaps MangaUpdates leaves) */
+export interface AniListInfo {
+    id: number;
+    url: string;
+    matchedBy: 'link' | 'title';
+    titleRomaji?: string;
+    titleEnglish?: string;
+    titleNative?: string;
+    synonyms: string[];
+    description?: string;
+    format?: string;
+    status?: 'FINISHED' | 'RELEASING' | 'NOT_YET_RELEASED' | 'CANCELLED' | 'HIATUS';
+    startYear?: number;
+    endYear?: number;
+    chapters?: number;
+    volumes?: number;
+    countryOfOrigin?: string;
+    isAdult?: boolean;
+    /** 0–100 */
+    averageScore?: number;
+    genres: string[];
+    tags: string[];
+    writers: string[];
+    artists: string[];
+}
+
+const ANILIST_STATUS: Record<string, string> = {
+    FINISHED: 'Complete',
+    RELEASING: 'Ongoing',
+    HIATUS: 'Hiatus',
+    CANCELLED: 'Cancelled',
+    NOT_YET_RELEASED: 'Not yet released',
+};
+
+/** AniList info in the same shape as MangaUpdates info, so the rest of the website can show it */
+function fromAniList(al: AniListInfo): MangaUpdatesInfo {
+    const statusWord = al.status ? ANILIST_STATUS[al.status] : undefined;
+    const start = al.startYear ? String(al.startYear) : undefined;
+    const end = al.endYear ? String(al.endYear) : undefined;
+    return {
+        seriesId: al.id,
+        url: al.url,
+        title: al.titleEnglish ?? al.titleRomaji ?? al.titleNative ?? '',
+        matchedBy: al.matchedBy,
+        year: start && end && end !== start ? `${start}-${end}` : start,
+        startYear: start,
+        endYear: end,
+        status: statusWord,
+        statusWord,
+        volumes: al.volumes ?? undefined,
+        completed: al.status ? al.status === 'FINISHED' : undefined,
+        rating: al.averageScore ? al.averageScore / 10 : undefined,
+        genres: al.genres ?? [],
+        associated: [al.titleEnglish, al.titleRomaji, al.titleNative, ...(al.synonyms ?? [])].filter((t): t is string => !!t),
+        writers: al.writers ?? [],
+        artists: al.artists ?? [],
+        originalPublishers: [],
+        englishPublishers: [],
+        publications: [],
+        source: 'AniList',
+        sources: [{ name: 'AniList', url: al.url, matchedBy: al.matchedBy }],
+    };
+}
+
+/**
+ * Series details from everything the API stored: MangaUpdates first, with AniList filling what MangaUpdates
+ * doesn't have (or replacing it entirely when MangaUpdates had no match). Null when neither matched.
+ */
+export function combinedSeriesInfo(data: ServerExtraMetadata['data'] | undefined): MangaUpdatesInfo | null {
+    const mu = data?.mangaUpdates ? ({ ...data.mangaUpdates } as MangaUpdatesInfo) : null;
+    const al = data?.aniList ? fromAniList(data.aniList) : null;
+    if (!mu) return al;
+    const muSource = { name: 'MangaUpdates', url: mu.url, matchedBy: mu.matchedBy };
+    if (!al) return { ...mu, source: 'MangaUpdates', sources: [muSource] };
+    const seen = new Set(mu.associated.map((t) => t.toLowerCase()));
+    return {
+        ...mu,
+        year: mu.year ?? al.year,
+        startYear: mu.startYear ?? al.startYear,
+        endYear: mu.endYear ?? al.endYear,
+        status: mu.status ?? al.status,
+        statusWord: mu.statusWord ?? al.statusWord,
+        volumes: mu.volumes ?? al.volumes,
+        completed: mu.completed ?? al.completed,
+        rating: mu.rating ?? al.rating,
+        genres: mu.genres.length ? mu.genres : al.genres,
+        writers: mu.writers.length ? mu.writers : al.writers,
+        artists: mu.artists.length ? mu.artists : al.artists,
+        associated: [...mu.associated, ...al.associated.filter((t) => !seen.has(t.toLowerCase()))],
+        source: 'MangaUpdates and AniList',
+        sources: [muSource, ...al.sources!],
     };
 }
 

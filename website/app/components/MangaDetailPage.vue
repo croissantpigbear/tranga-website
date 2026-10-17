@@ -34,15 +34,18 @@
                         <dd>{{ f.value }}</dd>
                     </template>
                 </dl>
-                <a
-                    v-if="mangaUpdates"
-                    :href="mangaUpdates.url"
-                    target="_blank"
-                    rel="noopener"
-                    class="text-xs text-dimmed hover:text-primary flex flex-row items-center gap-1 w-fit">
-                    <UIcon name="i-lucide-external-link" class="size-3.5" />
-                    Info from MangaUpdates{{ mangaUpdates.matchedBy === 'title' ? ' (matched by title — check it\'s the right series)' : '' }}
-                </a>
+                <template v-if="mangaUpdates">
+                    <a
+                        v-for="src in mangaUpdates.sources ?? [{ name: 'MangaUpdates', url: mangaUpdates.url, matchedBy: mangaUpdates.matchedBy }]"
+                        :key="src.name"
+                        :href="src.url"
+                        target="_blank"
+                        rel="noopener"
+                        class="text-xs text-dimmed hover:text-primary flex flex-row items-center gap-1 w-fit">
+                        <UIcon name="i-lucide-external-link" class="size-3.5" />
+                        Info from {{ src.name }}{{ src.matchedBy === 'title' ? ' (matched by title — check it\'s the right series)' : '' }}
+                    </a>
+                </template>
 
                 <!-- Read in Komga / Kavita -->
                 <div v-if="manga && readLinks.length" class="flex flex-row flex-wrap gap-2">

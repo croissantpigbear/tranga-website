@@ -103,12 +103,12 @@ const INCLUDED = [
     'Writer and artist',
     'Publisher and magazine',
     'Genres and tags',
-    'Age rating (from MangaDex / MangaUpdates)',
-    'Community rating (MangaUpdates)',
+    'Age rating (from MangaDex / MangaUpdates / AniList)',
+    'Community rating (MangaUpdates, or AniList)',
     'Reading direction (right-to-left for Japanese manga)',
     'Year, language and page count',
     'Total chapters when the series has finished',
-    'Links to MangaUpdates and the source websites',
+    'Links to MangaUpdates, AniList and the source websites',
 ];
 
 let timer: ReturnType<typeof setTimeout> | undefined;

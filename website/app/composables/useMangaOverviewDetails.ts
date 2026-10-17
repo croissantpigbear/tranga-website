@@ -204,7 +204,7 @@ export function useMangaOverviewDetails(
         await server.load(force);
         const stored = server.entries.get(key);
         if (stored) {
-            if (manga.value.key === key) mangaUpdates.value = (stored.data.mangaUpdates as MangaUpdatesInfo | null | undefined) ?? null;
+            if (manga.value.key === key) mangaUpdates.value = combinedSeriesInfo(stored.data);
             return;
         }
         const info = await fetchMangaUpdatesInfo(key, { links: d.links, titles: d.allTitles ?? [] }, { force });

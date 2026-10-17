@@ -84,7 +84,7 @@ export function useLibraryIndex() {
         // Details stored by the Tranga API: no need to ask MangaUpdates/MangaDex
         const stored = server.entries.get(m.key);
         if (stored) {
-            const mu = stored.data.mangaUpdates;
+            const mu = combinedSeriesInfo(stored.data);
             facets.set(m.key, {
                 writers: mu?.writers.length ? mu.writers : fromTranga.writers,
                 artists: mu?.artists ?? [],
