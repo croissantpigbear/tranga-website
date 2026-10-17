@@ -106,6 +106,11 @@
                                 </UButton>
                             </UTooltip>
                         </div>
+                        <UTooltip v-if="chapter.downloaded" text="Delete the file and download this chapter again, from this or another website">
+                            <UButton size="xs" variant="soft" color="secondary" icon="i-lucide-rotate-ccw" @click="askRedownload(chapter)">
+                                Re-download
+                            </UButton>
+                        </UTooltip>
                         <UButton
                             v-if="chapter.downloaded && chapterFiles?.supported.value"
                             size="xs"
@@ -136,6 +141,28 @@
                 The chapter stays in the list but won't be downloaded again. Click "Download" next to it later if you want it back.
             </p>
             <p v-if="deleteError" class="text-error">{{ deleteError }}</p>
+        </ConfirmDialog>
+
+        <ConfirmDialog
+            v-model:open="redownloadOpen"
+            :title="`Re-download ${redownloadTarget ? chapterLabel(redownloadTarget) : 'chapter'}?`"
+            confirm-label="Re-download"
+            :action="confirmRedownload">
+            <p>
+                The current file
+                <span v-if="redownloadTarget && fileOf(redownloadTarget)" class="font-medium">({{ fileOf(redownloadTarget)!.fileName }})</span>
+                is deleted and the chapter is downloaded again straight away. Useful when pages are missing, broken or low quality.
+            </p>
+            <UFormField v-if="redownloadTarget" label="Download from">
+                <USelect
+                    v-model="redownloadFrom"
+                    :items="sortedSources(redownloadTarget).map((s) => s.mangaConnectorName)"
+                    class="w-full" />
+            </UFormField>
+            <p v-if="redownloadTarget && sortedSources(redownloadTarget).length === 1" class="text-muted text-sm">
+                Only one website has this chapter. Link the series to another website (Search → add the same series) to get more choices.
+            </p>
+            <p v-if="redownloadError" class="text-error">{{ redownloadError }}</p>
         </ConfirmDialog>
     </div>
 </template>
@@ -198,6 +225,39 @@ const setDownload = async (chapterId: string, mangaConnector: string, requested:
     await refresh();
     props.chapterFiles?.load();
 };
+
+// Download a chapter again (from the same or another website)
+const api = useTrangaApi();
+const redownloadOpen = ref(false);
+const redownloadTarget = ref<Chapter>();
+const redownloadFrom = ref('');
+const redownloadError = ref('');
+function askRedownload(c: Chapter) {
+    redownloadTarget.value = c;
+    redownloadError.value = '';
+    // Default to a website other than the one it came from, if there is one
+    const sources = sortedSources(c);
+    const current = sources.find((s) => s.useForDownload)?.mangaConnectorName;
+    redownloadFrom.value = sources.find((s) => s.mangaConnectorName !== current)?.mangaConnectorName ?? current ?? sources[0]?.mangaConnectorName ?? '';
+    redownloadOpen.value = true;
+}
+async function confirmRedownload() {
+    if (!redownloadTarget.value || !redownloadFrom.value) return;
+    try {
+        await api.call(
+            `v2/ChapterFiles/${encodeURIComponent(redownloadTarget.value.key)}/Redownload/${encodeURIComponent(redownloadFrom.value)}`,
+            { method: 'POST' }
+        );
+    } catch (e) {
+        redownloadError.value =
+            api.statusOf(e) === 405 || (api.statusOf(e) === 404 && !(e as { data?: unknown }).data)
+                ? 'Your Tranga API is too old for this; update it first.'
+                : `Couldn't re-download: ${api.messageOf(e)}`;
+        throw e; // keep the dialog open
+    }
+    await refresh();
+    props.chapterFiles?.load();
+}
 
 // Delete a single chapter's file
 const deleteOpen = ref(false);

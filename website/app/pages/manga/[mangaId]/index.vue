@@ -26,6 +26,22 @@
                                 class="bg-elevated px-2 py-1 rounded-lg flex flex-row items-center gap-2">
                                 <MangaconnectorIcon v-bind="source" />
                                 <span class="text-sm grow truncate">{{ source.mangaConnectorName }}</span>
+                                <UTooltip
+                                    v-if="downloadingFromCount > 1 && source.useForDownload"
+                                    :text="
+                                        preferred === source.mangaConnectorName
+                                            ? 'Preferred: chapters come from here when this website has them. Click to clear.'
+                                            : 'Make this the preferred website: chapters come from here when it has them, the others fill gaps'
+                                    ">
+                                    <UButton
+                                        size="sm"
+                                        :variant="preferred === source.mangaConnectorName ? 'soft' : 'ghost'"
+                                        :color="preferred === source.mangaConnectorName ? 'warning' : 'neutral'"
+                                        :icon="preferred === source.mangaConnectorName ? 'i-lucide-star' : 'i-lucide-star-off'"
+                                        :aria-label="`Prefer ${source.mangaConnectorName}`"
+                                        loading-auto
+                                        @click="setPreferred(preferred === source.mangaConnectorName ? null : source.mangaConnectorName)" />
+                                </UTooltip>
                                 <UButton
                                     size="sm"
                                     :variant="source.useForDownload ? 'soft' : 'outline'"
@@ -39,6 +55,36 @@
                             </div>
                             <p v-if="!manga.fileLibraryId" class="text-xs text-warning">Choose a library first.</p>
                             <p v-else class="text-xs text-muted">Click to switch downloading from a website on or off.</p>
+                            <p v-if="downloadingFromCount > 1" class="text-xs text-muted">
+                                Each chapter downloads once:
+                                <template v-if="preferred">from {{ preferred }} when it has it, otherwise from the others.</template>
+                                <template v-else>star a website to choose where chapters come from first.</template>
+                            </p>
+                        </div>
+                    </UFormField>
+                    <UFormField
+                        v-if="manga"
+                        label="Start from chapter"
+                        class="mt-3"
+                        :description="
+                            savedStart > 0
+                                ? `Chapters before ${savedStart} aren't downloaded automatically (you can still pick them in the list).`
+                                : 'Every chapter is downloaded. Set a number to skip the ones before it.'
+                        ">
+                        <div class="flex flex-row items-center gap-2">
+                            <UInputNumber v-model="startFrom" :min="0" :step="1" placeholder="First chapter" class="w-40" />
+                            <UButton
+                                size="sm"
+                                variant="soft"
+                                icon="i-lucide-save"
+                                :disabled="(startFrom ?? 0) === savedStart"
+                                loading-auto
+                                @click="saveStartFrom">
+                                Save
+                            </UButton>
+                            <UButton v-if="savedStart > 0" size="sm" variant="ghost" color="neutral" loading-auto @click="saveStartFrom(0)">
+                                Download all
+                            </UButton>
                         </div>
                     </UFormField>
                 </UCard>
@@ -113,6 +159,53 @@ const setRequestedFrom = async (MangaConnectorName: string, IsRequested: boolean
     });
     await refreshNuxtData(FetchKeys.Manga.Id(mangaId));
 };
+
+const api = useTrangaApi();
+const toast = useToast();
+
+// Preferred website, for a series downloading from more than one
+const downloadingFromCount = computed(() => (manga.value?.mangaConnectorIds ?? []).filter((id) => id.useForDownload).length);
+const preferred = ref<string | null>(null);
+async function loadPreferred() {
+    try {
+        const p = await api.call<{ preferredWebsite: string | null }>(`v2/SeriesPreferences/${encodeURIComponent(mangaId)}`);
+        preferred.value = p.preferredWebsite;
+    } catch {
+        preferred.value = null; // older API
+    }
+}
+async function setPreferred(website: string | null) {
+    try {
+        const p = await api.call<{ preferredWebsite: string | null }>(`v2/SeriesPreferences/${encodeURIComponent(mangaId)}`, {
+            method: 'PUT',
+            body: { preferredWebsite: website },
+        });
+        preferred.value = p.preferredWebsite;
+    } catch (e) {
+        toast.add({ title: "Couldn't change the preferred website", description: api.messageOf(e), color: 'error', icon: 'i-lucide-circle-x' });
+    }
+}
+onMounted(loadPreferred);
+
+// Start from chapter (chapters before it aren't downloaded automatically)
+const savedStart = computed(() => manga.value?.ignoreChaptersBefore ?? 0);
+const startFrom = ref<number | null>(null);
+watch(savedStart, (v) => (startFrom.value = v > 0 ? v : null), { immediate: true });
+async function saveStartFrom(value?: number | MouseEvent) {
+    const n = typeof value === 'number' ? value : Math.max(0, startFrom.value ?? 0);
+    try {
+        await api.call(`v2/Chapters/IgnoreBefore/${encodeURIComponent(mangaId)}`, { method: 'PATCH', body: n });
+        await refreshNuxtData([FetchKeys.Manga.Id(mangaId), FetchKeys.Chapters.All]);
+        toast.add({
+            title: n > 0 ? `Starting from chapter ${n}` : 'Downloading every chapter',
+            description: n > 0 ? 'Earlier chapters that weren\'t downloaded yet are no longer selected.' : 'Earlier chapters are selected again.',
+            color: 'success',
+            icon: 'i-lucide-check',
+        });
+    } catch (e) {
+        toast.add({ title: "Couldn't save", description: api.messageOf(e), color: 'error', icon: 'i-lucide-circle-x' });
+    }
+}
 
 // Shared by the summary and the chapter list (sizes, delete chapter file, next check)
 const chapterFiles = useChapterFiles(mangaId);
