@@ -16,7 +16,7 @@
                             :manga-id="mangaId"
                             :library-id="manga?.fileLibraryId"
                             class="w-full"
-                            @library-changed="refreshNuxtData(FetchKeys.Manga.Id(mangaId))" />
+                            @library-changed="refreshNuxtData(FetchKeys.Manga.Id(mangaId)).then(() => seriesFolder?.load())" />
                     </UFormField>
                     <UFormField v-if="manga" label="Download from" class="mt-3">
                         <div class="flex flex-col gap-2">
@@ -88,6 +88,7 @@
                         </div>
                     </UFormField>
                 </UCard>
+                <SeriesFolder ref="seriesFolder" :manga-id="mangaId" />
                 <MangaMetadataFetcherTable :manga-id="mangaId" />
             </div>
         </div>
@@ -207,9 +208,13 @@ async function saveStartFrom(value?: number | MouseEvent) {
     }
 }
 
+const seriesFolder = ref<{ load: () => Promise<void> }>();
+
 // Shared by the summary and the chapter list (sizes, delete chapter file, next check)
 const chapterFiles = useChapterFiles(mangaId);
 onMounted(() => chapterFiles.load());
+// The folder's file list follows downloads, deletes and re-downloads
+watch(() => chapterFiles.files.value, () => seriesFolder.value?.load());
 
 const { refreshManga, isRefreshing } = useMangaRefresh();
 const canRefreshFromSource = computed(() => !!manga.value?.mangaConnectorIds.some((id) => id.useForDownload));
