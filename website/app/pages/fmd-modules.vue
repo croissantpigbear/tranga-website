@@ -73,6 +73,9 @@
                 <FmdUpload @uploaded="load" />
             </UCard>
 
+            <FmdUpdates v-if="overview && (overview.modules.length || overview.templates.length || overview.helpers.length)" ref="updatesBox"
+                @loaded="(d) => (updates = d)" @installed="load" />
+
             <!-- Sites -->
             <section v-if="overview" class="flex flex-col gap-3">
                 <h2 class="text-lg font-semibold flex items-center gap-2">
@@ -83,7 +86,14 @@
                 <div v-for="m in overview.modules" :key="m.fileName" class="rounded-lg border border-default p-3 flex flex-col gap-2">
                     <div class="flex flex-row flex-wrap items-center gap-2">
                         <UIcon name="i-lucide-file-code" class="size-4 text-muted" />
-                        <span class="font-mono text-sm grow">{{ m.fileName }}</span>
+                        <span class="font-mono text-sm">{{ m.fileName }}</span>
+                        <UBadge v-if="updateStatus('module', m.fileName) === 'updateAvailable'" size="sm" variant="subtle" color="primary" icon="i-lucide-refresh-cw">
+                            Update available
+                        </UBadge>
+                        <UBadge v-else-if="updateStatus('module', m.fileName) === 'upToDate'" size="sm" variant="soft" color="success" icon="i-lucide-check">
+                            Up to date
+                        </UBadge>
+                        <span class="grow" />
                         <UButton size="xs" variant="soft" color="error" icon="i-lucide-trash-2" @click="askDelete('module', m.fileName, m.sites.map((s) => s.name))">Delete</UButton>
                     </div>
                     <p v-if="m.error" class="text-sm text-error flex items-start gap-1">
@@ -124,6 +134,7 @@
                         <p v-if="!group.files.length" class="text-xs text-muted">None</p>
                         <div v-for="f in group.files" :key="f" class="flex flex-row items-center gap-2 text-sm">
                             <span class="font-mono grow truncate">{{ f }}</span>
+                            <UBadge v-if="updateStatus(group.kind, f) === 'updateAvailable'" size="sm" variant="subtle" color="primary">Update available</UBadge>
                             <UButton size="xs" variant="ghost" color="error" icon="i-lucide-trash-2" :aria-label="`Delete ${f}`" @click="askDelete(group.kind, f, [])" />
                         </div>
                     </div>
@@ -140,6 +151,7 @@
 </template>
 
 <script setup lang="ts">
+import type { LuaUpdates } from '~/components/fmd/FmdUpdates.vue';
 interface Site {
     name: string;
     moduleName: string;
@@ -203,6 +215,10 @@ function toggleHelp() {
 }
 
 const overview = ref<Overview>();
+const updates = ref<LuaUpdates>();
+const updatesBox = ref<{ reload: () => unknown }>();
+const updateStatus = (kind: string, fileName: string) =>
+    updates.value?.files.find((u) => u.kind === kind && u.fileName === fileName)?.status;
 const supported = ref<boolean>();
 let timer: ReturnType<typeof setTimeout> | undefined;
 async function load() {
