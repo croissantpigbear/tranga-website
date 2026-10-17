@@ -21,6 +21,8 @@ server {
 
     location /api {
         proxy_pass_request_headers on;
+        # Uploads: FMD2 modules and settings backups (base64 in JSON, so a bit bigger than the files)
+        client_max_body_size 64m;
         rewrite ^/api/(.*)$ /$1 break;
         proxy_pass $API_URL;
     }
@@ -48,6 +50,7 @@ server {
 
         proxy_pass $mangaupdates_upstream$uri;
         proxy_ssl_server_name on;
+        # MangaUpdates rejects HTTP/1.0 (nginx's default to upstreams) with 426 Upgrade Required
         proxy_http_version 1.1;
         proxy_set_header Connection "";
         proxy_set_header Host api.mangaupdates.com;

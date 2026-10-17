@@ -14,6 +14,11 @@
                             <p class="font-medium">{{ l.libraryName }}</p>
                             <p class="text-sm text-muted break-all">{{ l.basePath }}</p>
                         </div>
+                        <UTooltip text="Add series folders that are already in this folder to Tranga, without downloading them again">
+                            <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-folder-input" :to="`/import?library=${l.key}&return=/settings%23libraries`">
+                                Import existing
+                            </UButton>
+                        </UTooltip>
                         <UButton size="sm" variant="outline" color="neutral" icon="i-lucide-pencil" @click="startEdit(l)">Edit</UButton>
                         <UButton size="sm" variant="soft" color="error" icon="i-lucide-trash-2" @click="askDelete(l)">Delete</UButton>
                     </div>

@@ -114,7 +114,7 @@
                         </button>
                         <dl
                             v-if="expanded.has(row.key)"
-                            class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs px-14 pb-3 pt-1 bg-elevated/40">
+                            class="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs px-14 max-sm:px-3 pb-3 pt-1 bg-elevated/40">
                             <template v-for="d in detailRows(row)" :key="d[0]">
                                 <dt class="text-dimmed">{{ d[0] }}</dt>
                                 <dd class="break-all font-mono">{{ d[1] }}</dd>

@@ -3,7 +3,14 @@
         <template #description>Pick where to save it and which site to download from. Downloading starts within a minute.</template>
         <template #body>
             <div class="flex flex-col gap-4">
-                <UFormField label="Save to library">
+                <UFormField v-if="importing" label="Save to">
+                    <p class="text-sm flex items-center gap-2">
+                        <UIcon name="i-lucide-folder-input" class="size-4 text-primary" />
+                        The existing folder “{{ importInto!.folder }}”{{ importLibraryName ? ` in ${importLibraryName}` : '' }}
+                    </p>
+                    <p class="text-xs text-muted mt-1">Chapters already in it count as downloaded; only missing ones are downloaded.</p>
+                </UFormField>
+                <UFormField v-else label="Save to library">
                     <p v-if="libraries && !libraries.length" class="text-sm text-warning">
                         You have no download folders yet.
                         <NuxtLink to="/settings#libraries" class="underline">Add one in Settings</NuxtLink> first.
@@ -42,8 +49,8 @@
                 <span v-if="busy" class="text-sm text-muted grow">Adding {{ done }} of {{ manga.length }}…</span>
                 <span v-else class="grow" />
                 <UButton variant="outline" color="neutral" :disabled="busy" @click="open = false">Cancel</UButton>
-                <UButton icon="i-lucide-download" :loading="busy" :disabled="!libraryId" @click="addAll">
-                    {{ manga.length === 1 ? 'Add & download' : `Add ${manga.length} & download` }}
+                <UButton icon="i-lucide-download" :loading="busy" :disabled="!libraryId && !importing" @click="addAll">
+                    {{ importing ? 'Import & download missing' : manga.length === 1 ? 'Add & download' : `Add ${manga.length} & download` }}
                 </UButton>
             </div>
         </template>
@@ -54,7 +61,11 @@
 import type { components } from '#open-fetch-schemas/api';
 type MinimalManga = components['schemas']['MinimalManga'];
 
-const props = defineProps<{ manga: MinimalManga[] }>();
+const props = defineProps<{
+    manga: MinimalManga[];
+    /** Adding the series for a folder already in a library (Import page) */
+    importInto?: { libraryId: string; folder: string };
+}>();
 const open = defineModel<boolean>('open', { default: false });
 const emit = defineEmits<{ (e: 'added', keys: string[]): void }>();
 const { $api } = useNuxtApp();
@@ -70,6 +81,10 @@ const startFrom = ref<number | null>(null);
 const busy = ref(false);
 const done = ref(0);
 const results = reactive<Record<string, string>>({});
+
+// Importing only makes sense for one series
+const importing = computed(() => !!props.importInto && props.manga.length === 1);
+const importLibraryName = computed(() => libraries.value?.find((l) => l.key === props.importInto?.libraryId)?.libraryName);
 
 const title = computed(() => (props.manga.length === 1 ? `Add “${props.manga[0]?.name}”` : `Add ${props.manga.length} manga`));
 
@@ -97,7 +112,12 @@ watch(libraries, () => {
 });
 
 async function addOne(m: MinimalManga) {
-    await $api('/v2/Manga/{MangaId}/ChangeLibrary/{LibraryId}', { method: 'POST', path: { MangaId: m.key, LibraryId: libraryId.value! } });
+    if (importing.value)
+        await api.call(`v2/LibraryImport/${encodeURIComponent(props.importInto!.libraryId)}/Adopt`, {
+            method: 'POST',
+            body: { folderName: props.importInto!.folder, mangaId: m.key },
+        });
+    else await $api('/v2/Manga/{MangaId}/ChangeLibrary/{LibraryId}', { method: 'POST', path: { MangaId: m.key, LibraryId: libraryId.value! } });
     if (props.manga.length === 1 && startFrom.value != null && startFrom.value > 0)
         await api.call(`v2/Chapters/IgnoreBefore/${encodeURIComponent(m.key)}`, { method: 'PATCH', body: startFrom.value });
     const source = sources[m.key] || m.mangaConnectorIds[0]?.mangaConnectorName;
@@ -109,9 +129,9 @@ async function addOne(m: MinimalManga) {
 }
 
 async function addAll() {
-    if (!libraryId.value) return;
+    if (!libraryId.value && !importing.value) return;
     try {
-        localStorage.setItem(LAST_LIBRARY, libraryId.value);
+        if (libraryId.value && !importing.value) localStorage.setItem(LAST_LIBRARY, libraryId.value);
     } catch {
         /* ignore */
     }

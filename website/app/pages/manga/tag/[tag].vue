@@ -11,7 +11,7 @@
         <LoadingPage :loading="status === 'pending'">
             <MangaCardList
                 :manga="manga"
-                class="overflow-y-scroll h-full"
+                class="min-md:overflow-y-auto min-md:h-full"
                 @click="(m) => navigateTo(`/manga/${m.key}?return=${$route.fullPath}`)" />
         </LoadingPage>
     </TrangaPage>

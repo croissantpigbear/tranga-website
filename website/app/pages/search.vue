@@ -4,6 +4,15 @@
             <p class="text-2xl font-semibold">Add manga</p>
         </template>
         <div class="max-w-6xl mx-auto w-full flex flex-col gap-4 pb-10">
+            <UAlert
+                v-if="importInto"
+                color="info"
+                variant="subtle"
+                icon="i-lucide-folder-input"
+                :title="`Importing the folder “${importInto.folder}”`"
+                description="Add the series that matches it: Tranga saves into that folder, and the chapters already in it count as downloaded."
+                :actions="[{ label: 'Cancel import', color: 'neutral', variant: 'outline', onClick: cancelImport }]" />
+
             <!-- Search box -->
             <UCard>
                 <form class="flex flex-col gap-3" @submit.prevent="performSearch()">
@@ -171,7 +180,7 @@
             </div>
         </div>
 
-        <SearchAddMangaModal v-model:open="addOpen" :manga="addTargets" @added="onAdded" />
+        <SearchAddMangaModal v-model:open="addOpen" :manga="addTargets" :import-into="importInto" @added="onAdded" />
     </TrangaPage>
 </template>
 
@@ -184,6 +193,28 @@ const api = useTrangaApi();
 
 const { data: connectors } = useApi('/v2/MangaConnector', { key: FetchKeys.MangaConnector.All, server: false });
 const { data: library, refresh: refreshLibrary } = useApi('/v2/Manga', { key: FetchKeys.Manga.All, server: false });
+
+// --- Importing a library folder (from the Import page) ---
+const route = useRoute();
+const router = useRouter();
+const toast = useToast();
+const importInto = computed(() =>
+    typeof route.query.importFolder === 'string' && typeof route.query.importLibrary === 'string' && route.query.importFolder
+        ? { libraryId: route.query.importLibrary, folder: route.query.importFolder }
+        : undefined
+);
+function cancelImport() {
+    const { importFolder: _f, importLibrary: _l, ...rest } = route.query;
+    router.replace({ query: rest });
+}
+onMounted(() => {
+    // Opened with ?q=… (e.g. from the Import page): search straight away, on every site
+    if (typeof route.query.q === 'string' && route.query.q.trim()) {
+        query.value = route.query.q;
+        selectedSite.value = 'Global';
+        performSearch(route.query.q, 'Global');
+    }
+});
 
 // --- Search box ---
 const query = useState<string>('search-query', () => '');
@@ -360,6 +391,18 @@ function openAdd(list: MinimalManga[]) {
     addOpen.value = true;
 }
 async function onAdded(keys: string[]) {
+    if (importInto.value) {
+        toast.add({
+            title: `Imported “${importInto.value.folder}”`,
+            description: 'Chapters already in the folder are recognised once Tranga has read the series from the website.',
+            color: 'success',
+            icon: 'i-lucide-folder-check',
+        });
+        const back = typeof route.query.return === 'string' ? route.query.return : '/import';
+        added.value = [...new Set([...added.value, ...keys])];
+        await navigateTo(back);
+        return;
+    }
     added.value = [...new Set([...added.value, ...keys])];
     selected.value = selected.value.filter((k) => !keys.includes(k));
     if (selecting.value && !selected.value.length) selecting.value = false;

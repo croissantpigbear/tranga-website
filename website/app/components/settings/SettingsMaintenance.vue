@@ -19,6 +19,7 @@
                 </template>
                 <p v-else class="text-sm text-warning">The backup folder is connected, but no backups are in it yet.</p>
             </div>
+            <SettingsBackupRestore />
             <div class="rounded-lg bg-elevated p-3 flex flex-row flex-wrap items-center gap-3">
                 <div class="grow min-w-60">
                     <p class="font-medium">Remove manga you're not downloading</p>
