@@ -1,5 +1,24 @@
 <template>
     <div class="flex flex-col gap-3">
+        <div v-if="supported && pausedAll !== undefined" class="flex flex-row flex-wrap items-center gap-2">
+            <UAlert
+                v-if="pausedAll"
+                color="warning"
+                variant="subtle"
+                icon="i-lucide-pause"
+                title="Downloads are paused"
+                description="No new chapters start downloading. Chapters already downloading finish."
+                class="grow" />
+            <span v-else class="grow" />
+            <UButton
+                :icon="pausedAll ? 'i-lucide-play' : 'i-lucide-pause'"
+                :color="pausedAll ? 'primary' : 'neutral'"
+                variant="soft"
+                :loading="moving === 'all'"
+                @click="setPausedAll(!pausedAll)">
+                {{ pausedAll ? 'Resume downloads' : 'Pause all downloads' }}
+            </UButton>
+        </div>
         <ActivityFailures ref="failures" :active="active" @count="(n) => emit('failed', n)" @changed="load" />
         <p v-if="supported === false" class="text-sm text-warning">The download queue needs a newer Tranga API (the download queue update).</p>
         <USkeleton v-else-if="!entries" class="h-40 w-full" />
@@ -18,10 +37,13 @@
                             {{ e.name }}
                         </NuxtLink>
                         <div class="flex flex-row flex-wrap items-center gap-1.5 text-xs text-muted">
+                            <UBadge v-if="e.paused" size="sm" variant="subtle" color="warning" icon="i-lucide-pause">Paused</UBadge>
                             <UBadge v-if="e.downloading" size="sm" variant="subtle" color="primary" icon="i-lucide-loader">
                                 Downloading {{ e.downloading }}
                             </UBadge>
-                            <UBadge v-else-if="i === 0" size="sm" variant="subtle" color="neutral" icon="i-lucide-clock">Next</UBadge>
+                            <UBadge v-else-if="i === firstActive && !e.paused && !pausedAll" size="sm" variant="subtle" color="neutral" icon="i-lucide-clock">
+                                Next
+                            </UBadge>
                             <UBadge v-if="e.failed" size="sm" variant="subtle" color="error" icon="i-lucide-triangle-alert">
                                 {{ e.failed }} failed
                             </UBadge>
@@ -34,6 +56,17 @@
                         </div>
                     </div>
                     <div class="flex flex-row items-center gap-0.5 shrink-0">
+                        <UTooltip :text="e.paused ? 'Resume this series' : 'Pause this series'">
+                            <UButton
+                                size="xs"
+                                variant="ghost"
+                                :color="e.paused ? 'primary' : 'neutral'"
+                                :icon="e.paused ? 'i-lucide-play' : 'i-lucide-pause'"
+                                :disabled="!!moving"
+                                :loading="moving === `${e.mangaId}:pause`"
+                                :aria-label="e.paused ? 'Resume' : 'Pause'"
+                                @click="setPaused(e.mangaId, !e.paused)" />
+                        </UTooltip>
                         <UTooltip text="Download next">
                             <UButton
                                 size="xs"
@@ -87,10 +120,11 @@ export interface DownloadQueueEntry {
     websites: string[];
     failed?: number;
     retrying?: number;
+    paused?: boolean;
 }
 
 const props = defineProps<{ active: boolean }>();
-const emit = defineEmits<{ (e: 'count', series: number): void; (e: 'failed', chapters: number): void }>();
+const emit = defineEmits<{ (e: 'count', series: number): void; (e: 'failed', chapters: number): void; (e: 'paused', all: boolean): void }>();
 const api = useTrangaApi();
 const toast = useToast();
 const config = useRuntimeConfig();
@@ -98,6 +132,9 @@ const config = useRuntimeConfig();
 const entries = ref<DownloadQueueEntry[]>();
 const supported = ref<boolean>();
 const moving = ref<string>();
+/** undefined with an older API (no pausing) */
+const pausedAll = ref<boolean>();
+const firstActive = computed(() => (entries.value ?? []).findIndex((e) => !e.paused));
 
 const coverUrl = (mangaId: string) => `${config.public.openFetch.api.baseURL}v2/Manga/${mangaId}/Cover/Small`;
 
@@ -107,6 +144,12 @@ async function load() {
     try {
         entries.value = await api.call<DownloadQueueEntry[]>('v2/DownloadQueue');
         supported.value = true;
+        api.call<{ pausedAll: boolean }>('v2/DownloadQueue/Status')
+            .then((st) => {
+                pausedAll.value = st.pausedAll;
+                emit('paused', st.pausedAll);
+            })
+            .catch(() => (pausedAll.value = undefined));
         emit('count', entries.value.length);
     } catch (e) {
         if (api.statusOf(e) === 404 || api.statusOf(e) === 405) {
@@ -124,6 +167,34 @@ onMounted(load);
 const failures = ref<{ reload: () => unknown }>();
 defineExpose({ reload: () => (load(), failures.value?.reload()) });
 onBeforeUnmount(() => clearTimeout(timer));
+
+async function setPaused(mangaId: string, paused: boolean) {
+    moving.value = `${mangaId}:pause`;
+    try {
+        entries.value = await api.call<DownloadQueueEntry[]>(
+            `v2/DownloadQueue/${encodeURIComponent(mangaId)}/${paused ? 'Pause' : 'Resume'}`,
+            { method: 'POST' }
+        );
+    } catch (e) {
+        toast.add({ title: "Couldn't change that", description: api.messageOf(e), color: 'error', icon: 'i-lucide-circle-x' });
+        load();
+    } finally {
+        moving.value = undefined;
+    }
+}
+
+async function setPausedAll(paused: boolean) {
+    moving.value = 'all';
+    try {
+        const st = await api.call<{ pausedAll: boolean }>(`v2/DownloadQueue/${paused ? 'Pause' : 'Resume'}`, { method: 'POST' });
+        pausedAll.value = st.pausedAll;
+        emit('paused', st.pausedAll);
+    } catch (e) {
+        toast.add({ title: "Couldn't change that", description: api.messageOf(e), color: 'error', icon: 'i-lucide-circle-x' });
+    } finally {
+        moving.value = undefined;
+    }
+}
 
 async function move(mangaId: string, position: number) {
     moving.value = `${mangaId}:${position}`;

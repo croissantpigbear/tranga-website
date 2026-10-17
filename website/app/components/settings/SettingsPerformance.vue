@@ -34,7 +34,8 @@
                     </div>
                     <p class="text-xs text-muted">{{ p.hardware }}</p>
                     <p v-if="p.values" class="text-xs">
-                        {{ p.values.workers }} jobs · {{ p.values.downloads }} downloads · {{ p.values.perSource }} per site
+                        {{ p.values.workers }} jobs · {{ p.values.downloads }} downloads · {{ p.values.perSource }} per site ·
+                        {{ p.values.pages }} pages at once
                     </p>
                     <p v-else class="text-xs">Set the numbers yourself.</p>
                     <UBadge v-if="p.id === recommended" size="sm" variant="subtle" color="success" class="absolute -top-2 right-2">
@@ -44,7 +45,7 @@
             </div>
 
             <!-- Numbers -->
-            <div class="grid grid-cols-1 min-md:grid-cols-3 gap-3">
+            <div class="grid grid-cols-1 min-md:grid-cols-2 min-xl:grid-cols-4 gap-3">
                 <UFormField label="Jobs at once" description="Everything Tranga does: downloads, chapter checks, covers, metadata.">
                     <UInputNumber v-model="workers" :min="2" :max="64" class="w-32" @update:model-value="custom" />
                 </UFormField>
@@ -53,6 +54,12 @@
                 </UFormField>
                 <UFormField label="Downloads per site" description="Keeps any one site from being overloaded (or blocking you).">
                     <UInputNumber v-model="perSource" :min="1" :max="10" class="w-32" @update:model-value="custom" />
+                </UFormField>
+                <UFormField
+                    v-if="limits.pagesAtOnce !== undefined"
+                    label="Pages at once"
+                    description="Pages of one chapter downloaded together. Faster chapters; each page still counts towards the site's request limit.">
+                    <UInputNumber v-model="pages" :min="1" :max="8" class="w-32" @update:model-value="custom" />
                 </UFormField>
             </div>
             <p v-if="problem || warning" :class="['text-sm flex items-start gap-1', problem ? 'text-error' : 'text-warning']">
@@ -86,11 +93,14 @@ interface Limits {
     totalMemoryBytes?: number;
     architecture?: string;
     downloading: Record<string, number>;
+    /** Newer API only */
+    pagesAtOnce?: number;
 }
 interface Values {
     workers: number;
     downloads: number;
     perSource: number;
+    pages: number;
 }
 type ProfileId = 'pi' | 'low' | 'high' | 'custom';
 
@@ -100,21 +110,21 @@ const PROFILES: { id: ProfileId; label: string; icon: string; hardware: string; 
         label: 'Raspberry Pi / NAS',
         icon: 'i-lucide-cpu',
         hardware: 'Raspberry Pi 4/5, small NAS — about 4 cores, 2–4 GB memory.',
-        values: { workers: 4, downloads: 2, perSource: 1 },
+        values: { workers: 4, downloads: 2, perSource: 1, pages: 2 },
     },
     {
         id: 'low',
         label: 'Low-end desktop',
         icon: 'i-lucide-monitor',
         hardware: 'Older PC, mini PC or laptop — 4–6 cores, around 8 GB.',
-        values: { workers: 6, downloads: 3, perSource: 2 },
+        values: { workers: 6, downloads: 3, perSource: 2, pages: 3 },
     },
     {
         id: 'high',
         label: 'High-end desktop / server',
         icon: 'i-lucide-server',
         hardware: 'Modern desktop or home server — 8+ cores, 16 GB or more.',
-        values: { workers: 12, downloads: 6, perSource: 2 },
+        values: { workers: 12, downloads: 6, perSource: 2, pages: 4 },
     },
     { id: 'custom', label: 'Custom', icon: 'i-lucide-sliders-horizontal', hardware: 'Your own numbers.' },
 ];
@@ -125,6 +135,7 @@ const limits = ref<Limits | null>();
 const workers = ref(4);
 const downloads = ref(2);
 const perSource = ref(2);
+const pages = ref(2);
 const chosen = ref<ProfileId>();
 const saving = ref(false);
 const saveState = useSaveState();
@@ -139,7 +150,11 @@ const recommended = computed<ProfileId | undefined>(() => {
     return 'high';
 });
 
-const matches = (v: Values) => v.workers === workers.value && v.downloads === downloads.value && v.perSource === perSource.value;
+const matches = (v: Values) =>
+    v.workers === workers.value &&
+    v.downloads === downloads.value &&
+    v.perSource === perSource.value &&
+    (limits.value?.pagesAtOnce === undefined || v.pages === pages.value);
 const activeProfile = computed<ProfileId>(() => chosen.value ?? PROFILES.find((p) => p.values && matches(p.values))?.id ?? 'custom');
 
 const dirty = computed(
@@ -147,7 +162,8 @@ const dirty = computed(
         !!limits.value &&
         (workers.value !== (limits.value.maxConcurrentWorkers ?? workers.value) ||
             downloads.value !== limits.value.maxConcurrentDownloads ||
-            perSource.value !== limits.value.maxConcurrentDownloadsPerConnector)
+            perSource.value !== limits.value.maxConcurrentDownloadsPerConnector ||
+            (limits.value.pagesAtOnce !== undefined && pages.value !== limits.value.pagesAtOnce))
 );
 /** Values the API would refuse (blocks Save) */
 const problem = computed(() => {
@@ -168,6 +184,7 @@ function take(l: Limits) {
     workers.value = l.maxConcurrentWorkers ?? workers.value;
     downloads.value = l.maxConcurrentDownloads;
     perSource.value = l.maxConcurrentDownloadsPerConnector;
+    pages.value = l.pagesAtOnce ?? pages.value;
     chosen.value = undefined;
 }
 
@@ -197,6 +214,7 @@ function applyProfile(id: ProfileId) {
     workers.value = p.values.workers;
     downloads.value = p.values.downloads;
     perSource.value = p.values.perSource;
+    pages.value = p.values.pages;
     save();
 }
 
@@ -210,6 +228,7 @@ async function save() {
                 maxConcurrentWorkers: workers.value,
                 maxConcurrentDownloads: downloads.value,
                 maxConcurrentDownloadsPerConnector: Math.min(perSource.value, downloads.value),
+                ...(limits.value?.pagesAtOnce !== undefined ? { pagesAtOnce: pages.value } : {}),
             },
         });
         const keep = chosen.value;
