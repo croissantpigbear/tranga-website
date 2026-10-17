@@ -17,6 +17,7 @@
             <SettingsLibraries id="libraries" :settings="settings" class="scroll-mt-4" @add-library="addLibraryModal.open()" @connect="onConnect" />
             <SettingsDownloads id="downloads" :settings="settings" class="scroll-mt-4" />
             <SettingsPerformance id="performance" class="scroll-mt-4" />
+            <SettingsSchedules id="schedules" class="scroll-mt-4" />
             <SettingsFmd id="fmd" class="scroll-mt-4" />
             <SettingsNaming id="naming" :settings="settings" class="scroll-mt-4" />
             <SettingsComicInfo id="metadata" class="scroll-mt-4" />
@@ -58,6 +59,7 @@ const sections = [
     { id: 'libraries', label: 'Libraries', icon: 'i-lucide-library-big' },
     { id: 'downloads', label: 'Downloads', icon: 'i-lucide-download' },
     { id: 'performance', label: 'Performance', icon: 'i-lucide-gauge' },
+    { id: 'schedules', label: 'Schedules', icon: 'i-lucide-calendar-clock' },
     { id: 'fmd', label: 'More websites', icon: 'i-lucide-puzzle' },
     { id: 'naming', label: 'Naming', icon: 'i-lucide-text-cursor-input' },
     { id: 'metadata', label: 'Reader metadata', icon: 'i-lucide-file-code-2' },
