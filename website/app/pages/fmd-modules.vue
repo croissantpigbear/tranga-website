@@ -104,7 +104,7 @@
                     </ul>
                     <div v-for="s in m.sites" :key="s.name" class="rounded-md bg-elevated p-3 flex flex-col gap-2">
                         <div class="flex flex-row flex-wrap items-center gap-2">
-                            <img :src="`${s.rootUrl}/favicon.ico`" alt="" class="size-5 rounded-sm" referrerpolicy="no-referrer" @error="(e) => ((e.target as HTMLElement).style.visibility = 'hidden')" />
+                            <img :src="`${$config.public.openFetch.api.baseURL}v2/LuaModules/Sites/${encodeURIComponent(s.name)}/Icon`" alt="" class="size-5 rounded-sm" @error="(e) => ((e.target as HTMLElement).style.visibility = 'hidden')" />
                             <span class="font-medium">{{ s.name }}</span>
                             <a :href="s.rootUrl" target="_blank" rel="noopener" class="text-xs text-muted hover:text-primary truncate">{{ s.rootUrl }}</a>
                             <UBadge size="sm" variant="soft" color="neutral">{{ s.language }}</UBadge>
