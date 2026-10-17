@@ -22,6 +22,7 @@
             <SettingsNaming id="naming" :settings="settings" class="scroll-mt-4" />
             <SettingsComicInfo id="metadata" class="scroll-mt-4" />
             <SettingsNetwork id="network" :settings="settings" class="scroll-mt-4" />
+            <SettingsLogin id="login" class="scroll-mt-4" />
             <SettingsNotifications id="notifications" class="scroll-mt-4" @add="onAddNotification" />
             <SettingsMaintenance id="maintenance" class="scroll-mt-4" />
             <SettingsStats id="stats" class="scroll-mt-4" />
@@ -64,6 +65,7 @@ const sections = [
     { id: 'naming', label: 'Naming', icon: 'i-lucide-text-cursor-input' },
     { id: 'metadata', label: 'Reader metadata', icon: 'i-lucide-file-code-2' },
     { id: 'network', label: 'Network', icon: 'i-lucide-globe' },
+    { id: 'login', label: 'Login', icon: 'i-lucide-lock' },
     { id: 'notifications', label: 'Notifications', icon: 'i-lucide-bell' },
     { id: 'maintenance', label: 'Maintenance', icon: 'i-lucide-wrench' },
     { id: 'stats', label: 'Stats', icon: 'i-lucide-chart-no-axes-column' },

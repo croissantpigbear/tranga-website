@@ -5,6 +5,7 @@
 export function useTrangaApi() {
     const config = useRuntimeConfig();
     const base = config.public.openFetch.api.baseURL;
+    const router = useRouter();
 
     function call<T = unknown>(path: string, opts: { method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'; body?: unknown; query?: Record<string, string> } = {}) {
         const hasBody = opts.body !== undefined;
@@ -13,6 +14,12 @@ export function useTrangaApi() {
             query: opts.query,
             body: hasBody ? JSON.stringify(opts.body) : undefined,
             headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
+            // Logged out (login switched on, session ended): go to the login page
+            onResponseError({ response }) {
+                const route = router.currentRoute.value;
+                if (response.status === 401 && !path.includes('Auth/') && route.path !== '/login')
+                    router.push({ path: '/login', query: { return: route.fullPath } });
+            },
         });
     }
 

@@ -46,6 +46,9 @@
                 <UButton icon="i-lucide-settings" variant="ghost" to="/settings" color="secondary">
                     <span class="max-lg:hidden">Settings</span>
                 </UButton>
+                <UTooltip v-if="auth.status.value?.enabled && auth.status.value.loggedIn" :text="`Log out ${auth.status.value.username ?? ''}`">
+                    <UButton icon="i-lucide-log-out" variant="ghost" color="secondary" aria-label="Log out" @click="auth.logout()" />
+                </UTooltip>
             </template>
         </UHeader>
         <UMain>
@@ -58,6 +61,8 @@
 
 <script setup lang="ts">
 import type { NavigationMenuItem } from '#ui/components/NavigationMenu.vue';
+
+const auth = useAuth();
 
 const items = computed<NavigationMenuItem[]>(() => [
     { label: 'API', to: 'https://github.com/C9Glax/tranga', icon: 'i-lucide-github', target: '_blank' },
